@@ -26,6 +26,9 @@ LinkedList* LinkedList_Allocate(void) {
   Verify333(ll != NULL);
 
   // STEP 1: initialize the newly allocated record structure.
+  ll->num_elements = 0;  // empty initially
+  ll->head = NULL;
+  ll->tail = NULL;
 
   // Return our newly minted linked list.
   return ll;
@@ -39,6 +42,12 @@ void LinkedList_Free(LinkedList *list,
   // STEP 2: sweep through the list and free all of the nodes' payloads as
   // well as the nodes themselves.
   while (list->head != NULL) {
+    LinkedListNode *currNode = list->head;
+    LinkedListNode *nextNode = currNode->next;
+    list->head = nextNode;
+    list->num_elements--;
+    payload_free_function(currNode->payload);
+    free(currNode);
   }
 
   free(list);
@@ -68,6 +77,12 @@ void LinkedList_Push(LinkedList *list, LLPayload_t payload) {
     list->num_elements = 1;
   } else {
     // STEP 3: typical case; list has >=1 elements
+    LinkedListNode *prevFront = list->head;
+    ln->prev = NULL;
+    ln->next = prevFront;
+    prevFront->prev = ln;
+    list->head = ln;
+    list->num_elements++;
   }
 }
 
@@ -82,6 +97,22 @@ bool LinkedList_Pop(LinkedList *list, LLPayload_t *payload_ptr) {
   // Be sure to call free() to deallocate the memory that was
   // previously allocated by LinkedList_Push().
 
+  int listSize = list->num_elements;
+  if (listSize == 0) {  // If empty
+    return false;
+  } else {  // listSize >= 1
+    LinkedListNode *topNode = list->head;
+    if (list->num_elements == 1) {
+      list->head = list->tail = NULL;
+    } else {  // listSize >=2
+      list->head = topNode->next;
+      list->head->prev = NULL;
+    }
+    *payload_ptr = topNode->payload;
+    free(topNode);
+    list->num_elements--;
+  }
+
   return true;  // you may need to change this return value
 }
 
@@ -91,6 +122,25 @@ void LinkedList_Append(LinkedList *list, LLPayload_t payload) {
   // STEP 5: implement LinkedList_Append.  It's kind of like
   // LinkedList_Push, but obviously you need to add to the end
   // instead of the beginning.
+
+  if (list->num_elements == 0) {
+    LinkedList_Push(list, payload);  // default push for adding to empty list
+  } else {  // list has >= 1 elements
+    LinkedListNode *currNode = list->head;
+    while (currNode->next != NULL) {  // while not at last node in list
+      currNode = currNode->next;
+    }  // Now we are at end of list
+    // Allocate space for the new last node.
+    LinkedListNode *lastNde = (LinkedListNode *) malloc(sizeof(LinkedListNode));
+    Verify333(lastNde != NULL);
+
+    lastNde->payload = payload;  // Set the payload
+    lastNde->prev = currNode;
+    lastNde->next = NULL;
+    currNode->next = lastNde;  // Append the new last node
+    list->tail = lastNde;  // last node becomes new tail
+    list->num_elements++;
+  }
 }
 
 void LinkedList_Sort(LinkedList *list, bool ascending,
@@ -164,8 +214,9 @@ bool LLIterator_Next(LLIterator *iter) {
 
   // STEP 6: advance to the node beyond the iterator and return true if
   // it was valid.
+  iter->node = iter->node->next;
 
-  return true;  // you may need to change this return value
+  return LLIterator_IsValid(iter);  // you may need to change this return value
 }
 
 void LLIterator_Get(LLIterator *iter, LLPayload_t *payload) {
@@ -195,6 +246,34 @@ bool LLIterator_Remove(LLIterator *iter,
   // the iterator is pointing to, and also free any LinkedList
   // data structure element as appropriate.
 
+  int listSize = iter->list->num_elements;
+  LLPayload_t payloadPtr;
+  if (listSize == 1) {
+    LinkedList_Pop(iter->list, &payloadPtr);
+    payload_free_function(payloadPtr);
+    iter->node = NULL;  // No more elements
+    return false;
+  }
+  LinkedListNode *scrapNode = iter->node;
+  LinkedListNode *predecessor = scrapNode->prev;
+  LinkedListNode *successor = scrapNode->next;
+  if (scrapNode == iter->list->head) {  // at head
+    LinkedList_Pop(iter->list, &payloadPtr);
+    payload_free_function(payloadPtr);
+    iter->node = iter->list->head;  // point to next new head
+  } else if (scrapNode == iter->list->tail) {  // at tail
+    LinkedList_Slice(iter->list, &payloadPtr);
+    payload_free_function(payloadPtr);
+    iter->node = iter->list->tail;  // point to next new tail
+  } else {  // node is in middle
+    predecessor->next = successor;  // relink remaining successors
+    successor->prev = predecessor;
+    iter->node = successor;  // point next node to successor
+    payload_free_function(scrapNode->payload);
+    free(scrapNode);
+    iter->list->num_elements--;
+  }
+
   return true;  // you may need to change this return value
 }
 
@@ -207,6 +286,25 @@ bool LinkedList_Slice(LinkedList *list, LLPayload_t *payload_ptr) {
   Verify333(list != NULL);
 
   // STEP 8: implement LinkedList_Slice.
+  int listSize = list->num_elements;
+  if (listSize == 0) {
+    return false;
+  } else {  // listSize >= 1
+    if  (listSize == 1) {  // default case of popping a 1-size
+      return LinkedList_Pop(list, payload_ptr);
+    } else {  // listSize >= 2
+      LinkedListNode *currNode = list->head;
+      while (currNode->next != NULL) {  // while currNode != last node
+        currNode = currNode->next;
+      }  // we are at last node
+      LinkedListNode *prevNode = currNode->prev;
+      *payload_ptr = currNode->payload;
+      list->tail = prevNode;  // Prev node before sliced node is now last
+      list->tail->next = NULL;  // New last node points to nil
+      free(currNode);  // free sliced node
+      list->num_elements--;
+    }
+  }
 
   return true;  // you may need to change this return value
 }
