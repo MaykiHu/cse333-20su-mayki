@@ -16,6 +16,7 @@
 #include "CSE333.h"
 #include "HashTable.h"
 #include "HashTable_priv.h"
+#include "LinkedList_priv.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal helper functions.
@@ -25,6 +26,14 @@
 // Grows the hashtable (ie, increase the number of buckets) if its load
 // factor has become too high.
 static void MaybeResize(HashTable *ht);
+
+// MaybeRemove accepts a @param willRemove which specifies if the
+// @param key is an element in the @param list which will or will not
+// be removed.  If key has an element, it will be removed only
+// if @param willRemove is true, false to not remove.  Returns 
+// true if key was found and @param keyvalue is returned, false otherwise.
+static bool MaybeRemove(LinkedList *list, HTKey_t key, HTKeyValue_t *keyvalue,
+                        bool willRemove);
 
 int HashKeyToBucketNum(HashTable *ht, HTKey_t key) {
   return key % ht->num_buckets;
@@ -134,8 +143,17 @@ bool HashTable_Insert(HashTable *table,
   // and optionally remove a key within a chain, rather than putting
   // all that logic inside here.  You might also find that your helper
   // can be reused in steps 2 and 3.
-
-  return 0;  // you may need to change this return value
+  
+  // Find and remove element w/ matching key if exists
+  bool hasElement = MaybeRemove(chain, newkeyvalue.key, oldkeyvalue, true);
+  // Add new node/element with newkeyvalue's value
+  HTKeyValue_t *newNode = (HTKeyValue_t *) malloc(sizeof(HTKeyValue_t));
+  *newNode = newkeyvalue;
+  LinkedList_Push(chain, newNode);
+  if (!hasElement) {  // Only increment size if indeed a new key's element
+    table->num_elements++;
+  }
+  return hasElement;  // you may need to change this return value
 }
 
 bool HashTable_Find(HashTable *table,
@@ -144,8 +162,11 @@ bool HashTable_Find(HashTable *table,
   Verify333(table != NULL);
 
   // STEP 2: implement HashTable_Find.
+  int bucket = HashKeyToBucketNum(table, key);
+  LinkedList *chain = table->buckets[bucket];
+  bool hasElement = MaybeRemove(chain, key, keyvalue, false);
 
-  return false;  // you may need to change this return value
+  return hasElement;  // you may need to change this return value
 }
 
 bool HashTable_Remove(HashTable *table,
@@ -154,8 +175,15 @@ bool HashTable_Remove(HashTable *table,
   Verify333(table != NULL);
 
   // STEP 3: implement HashTable_Remove.
-
-  return 0;  // you may need to change this return value
+  // First, find where this key would be hashed to
+  int bucket = HashKeyToBucketNum(table, key);
+  LinkedList *chain = table->buckets[bucket];
+  // Now check if the key actually exists and remove if so
+  bool hasElement = MaybeRemove(chain, key, keyvalue, true);
+  if (hasElement) {  // Account for new size from removed element
+    table->num_elements--;
+  }
+  return hasElement;  // you may need to change this return value
 }
 
 
@@ -206,23 +234,49 @@ bool HTIterator_IsValid(HTIterator *iter) {
   Verify333(iter != NULL);
 
   // STEP 4: implement HTIterator_IsValid.
+  if (iter->bucket_it == NULL) {  // Not iterating over null
+    return false;
+  }
+  bool hasNode = LLIterator_IsValid(iter->bucket_it);
 
-  return true;  // you may need to change this return value
+  return hasNode;  // you may need to change this return value
 }
 
 bool HTIterator_Next(HTIterator *iter) {
   Verify333(iter != NULL);
 
   // STEP 5: implement HTIterator_Next.
-
-  return true;  // you may need to change this return value
+  if (!HTIterator_IsValid(iter)) {  // Iterator not valid
+    return false;
+  } else {  // Can advance to next element
+    bool hasNextAfter = LLIterator_Next(iter->bucket_it);  // ADVANCE!!
+    if (!hasNextAfter) {  // Try finding next to point since we've advanced
+      int currIndex = iter->bucket_idx;
+      int maxBuckets = iter->ht->num_buckets;
+      for (int i = currIndex + 1; i < maxBuckets; i++) {
+        bool hasElements = LinkedList_NumElements(iter->ht->buckets[i]);
+        if (hasElements) {  // If found a bucket still with elements
+          LLIterator_Free(iter->bucket_it);  // free prev LLIterator
+          iter->bucket_idx = i;
+          iter->bucket_it = LLIterator_Allocate(iter->ht->buckets[i]);
+          return true;
+        }
+      }
+    }  // We have elements still next after advancing this LLIterator
+    return hasNextAfter;
+  }
 }
 
 bool HTIterator_Get(HTIterator *iter, HTKeyValue_t *keyvalue) {
   Verify333(iter != NULL);
 
   // STEP 6: implement HTIterator_Get.
-
+  if (!HTIterator_IsValid(iter)) {  // Iterator/Table is empty
+    return false;
+  }
+  HTKeyValue_t *element;
+  LLIterator_Get(iter->bucket_it, (LLPayload_t *) &element);
+  *keyvalue = *element;
   return true;  // you may need to change this return value
 }
 
@@ -285,4 +339,24 @@ static void MaybeResize(HashTable *ht) {
   // Done!  Clean up our iterator and temporary table.
   HTIterator_Free(it);
   HashTable_Free(newht, &HTNoOpFree);
+}
+
+static bool MaybeRemove(LinkedList *list, HTKey_t key, HTKeyValue_t *keyvalue,
+                        bool willRemove) {
+  LLIterator *nodeItr = LLIterator_Allocate(list);
+  while (LLIterator_IsValid(nodeItr)) {  // We have elements
+    HTKeyValue_t *kv;
+    LLIterator_Get(nodeItr, (LLPayload_t *) &kv);  // Get this element
+    if (kv->key == key) {  // We found our matching key
+      if (willRemove) {  // If requested to remove
+        LLIterator_Remove(nodeItr, &LLNoOpFree);
+      }
+      *keyvalue = *kv;
+      LLIterator_Free(nodeItr);
+      return true;
+    }
+    LLIterator_Next(nodeItr);
+  }
+  LLIterator_Free(nodeItr);
+  return false;  // We didn't end up finding a match :(
 }
