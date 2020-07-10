@@ -30,7 +30,7 @@ static void MaybeResize(HashTable *ht);
 // MaybeRemove accepts a @param willRemove which specifies if the
 // @param key is an element in the @param list which will or will not
 // be removed.  If key has an element, it will be removed only
-// if @param willRemove is true, false to not remove.  Returns 
+// if @param willRemove is true, false to not remove.  Returns
 // true if key was found and @param keyvalue is returned, false otherwise.
 static bool MaybeRemove(LinkedList *list, HTKey_t key, HTKeyValue_t *keyvalue,
                         bool willRemove);
@@ -143,7 +143,6 @@ bool HashTable_Insert(HashTable *table,
   // and optionally remove a key within a chain, rather than putting
   // all that logic inside here.  You might also find that your helper
   // can be reused in steps 2 and 3.
-  
   // Find and remove element w/ matching key if exists
   bool hasElement = MaybeRemove(chain, newkeyvalue.key, oldkeyvalue, true);
   // Add new node/element with newkeyvalue's value
