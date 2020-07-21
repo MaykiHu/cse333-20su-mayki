@@ -69,26 +69,30 @@ char *ReadFileToString(const char *filename, int *size) {
   // Use the stat system call to fetch a "struct stat" that describes
   // properties of the file. ("man 2 stat"). You can assume we're on a 64-bit
   // system, with a 64-bit off_t field.
-
-
-
+  if (stat(filename, &filestat) == -1) {  // error getting stat
+    return NULL;
+  }
   // STEP 2.
   // Make sure this is a "regular file" and not a directory or something else
   // (use the S_ISREG macro described in "man 2 stat").
-
-
-
+  if (!S_ISREG(filestat.st_mode)) {  // if not a regular file
+    return NULL;
+  }
   // STEP 3.
   // Attempt to open the file for reading (see also "man 2 open").
-
-
-
+  fd = open(filename, O_RDONLY);
+  if (fd == -1) {  // Could not open file
+    close(fd);
+    return NULL;
+  }
   // STEP 4.
   // Allocate space for the file, plus 1 extra byte to
   // '\0'-terminate the string.
-
-
-
+  buf = (char *) malloc(sizeof(char) * (filestat.st_size + 1));
+  if (buf == NULL) {  // malloc failed
+    close(fd);
+    return NULL;
+  }
   // STEP 5.
   // Read in the file contents using the read() system call (see also
   // "man 2 read"), being sure to handle the case that read() returns -1 and
@@ -98,7 +102,21 @@ char *ReadFileToString(const char *filename, int *size) {
   // or a non-recoverable error.  Read the man page for read() carefully, in
   // particular what the return values -1 and 0 imply.
   left_to_read = filestat.st_size;
+  numread = 0;
   while (left_to_read > 0) {
+    result = read(fd, buf + numread, left_to_read);
+    if (result == -1) {
+      if (errno != EINTR && errno != EAGAIN) {  // not EAGAIN or EINTR
+        close(fd);
+        free(buf);
+        return NULL;
+      }
+      continue;
+    } else if (result == 0) {  // reached end of file
+      break;
+    }
+    numread += result;
+    left_to_read -= result;
   }
 
   // Great, we're done!  We hit the end of the file and we read
@@ -185,7 +203,7 @@ static void InsertContent(HashTable *tab, char *content) {
   // For example, here's a string with its words underlined with "=" and
   // boundary characters underlined with "+":
   //
-  // The  Fox  Can't   CATCH the  Chicken.
+  // The  Fox  Can't   CATCH the  Chicken./0
   // ===++===++===+=+++=====+===++=======+
   //
   // Any time you detect the start of a word, you should use the "wordstart"
@@ -198,10 +216,28 @@ static void InsertContent(HashTable *tab, char *content) {
   // Each time you find a word that you want to record in the hashtable, call
   // AddWordPosition() helper with appropriate arguments, e.g.,
   //    AddWordPosition(tab, wordstart, pos);
-
-  while (1) {
-    break;  // you may want to change this
-  }  // end while-loop
+  int i = 0;
+  int pos;
+  int fileSize = strlen(content);
+  while (i < fileSize) {  // Not at end of content
+    if (isalpha(*curptr)) {  // start of word
+      *curptr = tolower(*curptr);
+      wordstart = curptr;
+      pos = i;
+      i++;
+      curptr++;  // move to next letter, since we've saved the start
+      while (i < fileSize && isalpha(*curptr)) {  // go to end of word
+        *curptr = tolower(*curptr);
+        curptr++;
+        i++;
+      }  // got to end of word
+      wordstart[i - pos] = '\0';
+      AddWordPosition(tab, wordstart, pos);
+    } else { // skip/move to next
+      curptr++;
+      i++;
+    }
+  }  // end while-loop, finished scanning contents
 }
 
 static void AddWordPosition(HashTable *tab, char *word,
@@ -232,5 +268,16 @@ static void AddWordPosition(HashTable *tab, char *word,
     // No; this is the first time we've seen this word.  Allocate and prepare
     // a new WordPositions structure, and append the new position to its list
     // using a similar ugly hack as right above.
+    wp = (WordPositions *) malloc(sizeof(WordPositions));  // allocate new wp
+    Verify333(wp != NULL);
+    wp->positions = LinkedList_Allocate();
+    int wordLength = strlen(word) + 1;  // for the '\0'
+    wp->word = (char *) malloc(wordLength);
+    snprintf(wp->word, wordLength, "%s", word);  // save b/c we free *contents
+    LinkedList_Append(wp->positions, (LLPayload_t) (int64_t) pos);  // save pos
+    kv.key = hashKey;
+    kv.value = (HTValue_t) wp;
+    HTKeyValue_t oldKeyVal;  // Add this new keyvalue for this new word
+    Verify333(HashTable_Insert(tab, kv, &oldKeyVal) == false);
   }
 }
