@@ -66,7 +66,7 @@ DocID_t DocTable_Add(DocTable *table, char *docname) {
   // STEP 2.
   // Check to see if the document already exists.  Then make a copy of the
   // docname and allocate space for the new ID.
-  res = DocTable_GetDocID(table, docname); 
+  res = DocTable_GetDocID(table, docname);
   if (res != INVALID_DOCID) {  // doc already exists
     return res;
   }

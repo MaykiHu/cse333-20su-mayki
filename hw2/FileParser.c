@@ -233,7 +233,7 @@ static void InsertContent(HashTable *tab, char *content) {
       }  // got to end of word
       wordstart[i - pos] = '\0';
       AddWordPosition(tab, wordstart, pos);
-    } else { // skip/move to next
+    } else {  // skip/move to next
       curptr++;
       i++;
     }
