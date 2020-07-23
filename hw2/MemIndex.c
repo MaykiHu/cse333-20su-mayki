@@ -98,7 +98,7 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t docid,
   // STEP 1.
   // Remove this early return.  We added this in here so that your unittests
   // would pass even if you haven't finished your MemIndex implementation.
-  return;
+
 
 
   // First, we have to see if the passed-in word already exists in
@@ -115,9 +115,14 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t docid,
     //       mapping.
     //   (3) insert the the new WordPostings into the inverted index (ie, into
     //       the "index" table).
-
-
-
+    wp = (WordPostings *) malloc(sizeof(WordPostings));  // malloc wp struct
+    Verify333(wp != NULL);
+    wp->word = word;  // 1. take ownership of passed-in word
+    wp->postings = HashTable_Allocate(64);  // 2. allocate, ht can resize later
+    Verify333(wp->postings != NULL);
+    mi_kv.key = key;
+    mi_kv.value = wp;
+    Verify333(HashTable_Insert(index, mi_kv, &unused) == false);  // 3. add
   } else {
     // Yes, this word already exists in the inverted index.  There's no need
     // to insert it again.
@@ -145,6 +150,9 @@ void MemIndex_AddPostingList(MemIndex *index, char *word, DocID_t docid,
   // The entry's key is this docID and the entry's value
   // is the "postings" (ie, word positions list) we were passed
   // as an argument.
+  postings_kv.key = docid;
+  postings_kv.value = postings;
+  Verify333(HashTable_Insert(wp->postings, postings_kv, &unused) == false);
 }
 
 LinkedList* MemIndex_Search(MemIndex *index, char *query[], int querylen) {
@@ -167,9 +175,24 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int querylen) {
   // each document that matches, allocate and initialize a SearchResult
   // structure (the initial computed rank is the number of times the word
   // appears in that document).  Finally, append the SearchResult onto retline.
-
-
-
+  key = FNVHash64((unsigned char *) query[0], strlen(query[0]));  // get key
+  retlist = LinkedList_Allocate();
+  Verify333(retlist != NULL);
+  if (!HashTable_Find(index, key, &kv)) {  // cannot find matching word
+    LinkedList_Free(retlist, &MI_NoOpFree);
+    return NULL;
+  }  // found the word's matching docs
+  wp = (WordPostings *) kv.value;  // get the matching docs to iterate
+  HTIterator *docIt = HTIterator_Allocate(wp->postings);
+  Verify333(docIt != NULL);
+  while (HTIterator_IsValid(docIt)) {  // iterate docs
+    HTIterator_Get(docIt, &kv);
+    SearchResult *docResult = (SearchResult *) malloc(sizeof(SearchResult));
+    docResult->docid = kv.key;
+    docResult->rank = LinkedList_NumElements(kv.value);
+    LinkedList_Append(retlist, docResult);  // append doc's SearchResult
+    HTIterator_Next(docIt);  // move to next doc
+  }
   // Great; we have our search results for the first query
   // word.  If there is only one query word, we're done!
   // Sort the result list and return it to the caller.
@@ -188,9 +211,11 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int querylen) {
     // Look up the next query word (query[i]) in the inverted index.
     // If there are no matches, it means the overall query
     // should return no documents, so free retlist and return NULL.
-
-
-
+    key = FNVHash64((unsigned char *) query[i], strlen(query[i]));
+    if (!HashTable_Find(index, key, &kv)) {  // no matches
+      LinkedList_Free(retlist, &MI_NoOpFree);
+      return NULL;
+    }
     // STEP 6.
     // There are matches.  We're going to iterate through
     // the docIDs in our current search result list, testing each
@@ -205,10 +230,18 @@ LinkedList* MemIndex_Search(MemIndex *index, char *query[], int querylen) {
     llit = LLIterator_Allocate(retlist);
     Verify333(llit != NULL);
     numdocs = LinkedList_NumElements(retlist);
-    for (j = 0; j < numdocs; j++) {
+    for (j = 0; j < numdocs; j++) {  // iterate through docs
+      SearchResult *docResult;  // get the curr doc SearchResult
+      LLIterator_Get(llit, (LLPayload_t *) &docResult);
+      if (HashTable_Find(wp->postings, docResult->docid, &kv)) {
+        // matched docid from doc SearchResult to query[i]
+        docResult->rank += LinkedList_NumElements(kv.value);  // update rank
+        LLIterator_Next(llit);  // go to next entry
+      } else {  // isn't a matching docid from doc SearchResult to query[i]
+        LLIterator_Remove(llit, &MI_NoOpFree);
+        // automatically points to next entry after remove
+      }
     }
-    LLIterator_Free(llit);
-
     // We've finished processing this current query word.  If there are no
     // documents left in our result list, free retlist and return NULL.
     if (LinkedList_NumElements(retlist) == 0) {
