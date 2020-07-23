@@ -1,0 +1,25 @@
+HW1 Feedback
+
+
+Test Suite: 215/215
+
+
+Valgrind: 0/5
+
+
+Modularity: 2/5
+(-3) HT includes the private LL header.
+
+Blending with starter code: 4/5
+(-1) HT helper function or parameters have improper argument order (should be "thing to operate on", "inputs", "outputs").
+
+Robustness and error checking: 5/5
+
+
+Comments and other style issues: 5/5
+
+
+Short Answer Questions: 5/5
+
+
+Bonus: 0/5
