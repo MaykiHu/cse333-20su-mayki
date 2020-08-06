@@ -1,0 +1,31 @@
+HW2 Feedback
+
+
+Test Suite: 235/305
+
+
+Valgrind: 0/5
+
+
+Modularity: 4/5
+(-1) Unnecessary functions. Eg. Two helper function where one is a thin wrapper around the other; Factors out only one or two simple lines of code.
+
+Blending with starter code: 5/5
+
+
+Robustness and error checking: 5/5
+(-1) Fails to free memory/resources on error.
+
+Comments and other style issues: 3/5
+(-2) Multiple compiler warnings.
+
+Search shell: 0/5
+(-5) Not implemented.
+
+Short Answer Questions: 4/5
+(+0) Writes a few sentences (>=3) that give a thoughtful and detailed answer about using data structures in C.
+(+0) Mentions >=3 valid things to consider when using char* in C vs a string object in other langauges.
+(-1/2) Only mentions 1 valid reason for why we would use POSIX
+(-1/2) Mentions >=2 valid challenges of handling user input in C, but doesn't mention any comparisons to other languages.
+
+Bonus: 0/5
