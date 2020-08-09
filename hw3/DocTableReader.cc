@@ -48,7 +48,10 @@ bool DocTableReader::LookupDocID(const DocID_t &docid,
     // STEP 1.
     // Slurp the next docid out of the element.
     DoctableElementHeader currHeader;
-
+    Verify333(fseek(file_, curr, SEEK_SET) == 0);  // find next element
+    Verify333(fread(&currHeader, sizeof(DoctableElementHeader), 1, file_)
+              == 1);  // read the element header
+    currHeader.toHostFormat();  // convert to host order
 
     // Is it a match?
     if (currHeader.docID == docid) {
@@ -66,7 +69,7 @@ bool DocTableReader::LookupDocID(const DocID_t &docid,
       // Using the str() method of ss to extract a std::string object,
       // and return it through the output parameter retval.  Return
       // true.
-
+      *retval = ss.str();
 
       return true;
     }

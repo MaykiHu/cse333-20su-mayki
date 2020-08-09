@@ -58,8 +58,9 @@ DocIDTableReader* IndexTableReader::LookupWord(const string &word) {
     // specifically, extract the "word length" field and the "docID
     // table length" fields, converting from network to host order.
     WordPostingsHeader header;
-
-
+    Verify333(fseek(file_, offset, SEEK_SET) == 0);  // get element header loc
+    Verify333(fread(&header, sizeof(WordPostingsHeader), 1, file_) == 1);
+    header.toHostFormat();  // convert to host order
 
     // If the "word length" field doesn't match the length of the word
     // we're looking up, use continue to skip to the next element.
@@ -73,6 +74,9 @@ DocIDTableReader* IndexTableReader::LookupWord(const string &word) {
     stringstream ss;
     for (int i = 0; i < header.wordBytes; i++) {
       // STEP 2.
+      uint8_t currChar;
+      Verify333(fread(&currChar, sizeof(uint8_t), 1, file_) == 1);  // get char
+      ss << currChar;
     }
 
     // Use ss.str() to extract a std::string from the stringstream,
