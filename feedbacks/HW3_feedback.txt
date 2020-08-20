@@ -1,0 +1,28 @@
+HW3 Feedback
+
+
+Test Suite: 210/290
+
+
+Valgrind: 5/5
+
+
+Modularity: 2/5
+(-3) Calculates checksum reading one byte at a time when the read is unbuffered. Read more bytes into a buffer instead of calling fread for every byte.
+
+
+Robustness and error checking: 5/5
+
+
+Comments, Blending, and other style issues: 4/5
+(-1) Using reinterpret_cast instead of a more appropriate cast. Generally, one should avoid using reinterpret_cast when they can.
+
+
+Search shell: 0/5
+(-5) Did not implement
+
+Short Answer Questions: 4/5
+(-1) Mentions only 1 or 2 notable difference to programming in C++ compared to C.
+
+
+Extra Credit: 0/5
