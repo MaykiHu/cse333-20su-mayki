@@ -45,9 +45,30 @@ bool HttpConnection::GetNextRequest(HttpRequest *request) {
   // caller invokes GetNextRequest()!
 
   // STEP 1:
+  size_t found = buffer_.find(kHeaderEnd);  // check if header exists
+  if (found == string::npos) {  // no header end was found, we need to read
+    unsigned char buf[1024];
+    int bytesRead = -1;
+    // Keep reading data until connection drops or header end found
+    while (bytesRead != 0 && found == string::npos) {
+      bytesRead = WrappedRead(fd_, buf, 1024);
+      if (bytesRead == -1) {  // fatal error occured
+        return false;
+      } else if (bytesRead == 0) {  // connection dropped / EOF
+        continue;  // no need to add to buffer_
+      } else {  // we read the bytes; need to add to buffer_
+        buffer_ += std::string(reinterpret_cast<char *>(buf), bytesRead);
+        found = buffer_.find(kHeaderEnd);  // update if we've found header end
+      }
+    }
+  }  // finished reading
+  if (found == string::npos) {  // if we haven't read header end
+    return false;
+  }  // else, we have seen the request header so parse it
+  *request = ParseRequest(buffer_.substr(0, found + kHeaderEndLen));
+  buffer_ = buffer_.substr(found + kHeaderEndLen);  // preserve after header
 
-
-  return false;  // You may want to change this.
+  return true;  // You may want to change this.
 }
 
 bool HttpConnection::WriteResponse(const HttpResponse &response) {
@@ -80,8 +101,27 @@ HttpRequest HttpConnection::ParseRequest(const string &request) {
   // malformed, you may skip that line.
 
   // STEP 2:
-
-
+  std::vector<std::string> lines;  // split request into lines
+  boost::split(lines, request, boost::is_any_of("\r\n"),
+               boost::token_compress_on);
+  for (uint32_t i = 0; i < lines.size(); i++) {  // trim whitespace from lines
+    boost::trim(lines[i]);
+  }
+  std::vector<std::string> firstLine;  // first line of req
+  boost::split(firstLine, lines[0], boost::is_any_of(" "),
+               boost::token_compress_on);  // parse first line
+  if (firstLine.size() == 3) {  // request first line should have 3 args
+    req.set_uri(firstLine[1]);  // the param at index 1 is the URI
+  }  // now we extract the header info
+  std::vector<std::string> header;
+  for (uint32_t i = 1; i < lines.size(); i++) {  // iterate through header lines
+    boost::split(header, lines[i], boost::is_any_of(": "),
+                 boost::token_compress_on);  // [headername], [headerval]
+    if (header.size() == 2) {  // is correctly formed, assume format is correct
+      boost::to_lower(header[0]);  // maker header name lowercase
+      req.AddHeader(header[0], header[1]);
+    }  // otherwise request is malformed and we can skip this line
+  }
   return req;
 }
 
