@@ -53,9 +53,20 @@ bool IsPathSafe(const string &rootdir, const string &testfile) {
   // path of a file.)
 
   // STEP 1
+  char rootBuf[PATH_MAX];
+  char fileBuf[PATH_MAX];
+  char *res = realpath(rootdir.c_str(), rootBuf);
+  if (res) {  // is valid rootdir
+    res = realpath(testfile.c_str(), fileBuf);  // check path to file
+    if (res) {  // is also a valid testfile; see if root matches in file path
+      int isMatch = strncmp(rootBuf, fileBuf, strlen(rootBuf));
+      if (isMatch == 0) {  // root directory matches, so hierarchy is safe
+        return true;
+      }  // not right directory to file
+    }  // not a valid path to testfile
+  }  // not a valid path to root dir, exit
 
-
-  return true;  // You may want to change this.
+  return false;  // You may want to change this.
 }
 
 string EscapeHtml(const string &from) {
@@ -68,8 +79,12 @@ string EscapeHtml(const string &from) {
   // the rest of the characters that need to be replaced can be
   // looked up online.
 
-  // STEP 2
-
+  // STEP 2  replaces: & < > " '
+  boost::replace_all(ret, "&", "&amp;");
+  boost::replace_all(ret, "<", "&lt;");
+  boost::replace_all(ret, ">", "&gt;");
+  boost::replace_all(ret, "\"", "&quot;");  // " is replaced
+  boost::replace_all(ret, "'", "&apos;");
 
   return ret;
 }
