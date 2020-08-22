@@ -43,8 +43,16 @@ bool FileReader::ReadFile(string *str) {
   // HttpUtils.h above the MallocDeleter class for details.
 
   // STEP 1:
-
-
+  if (!IsPathSafe(basedir_, fullfile)) {  // if file not within hierarchy
+    return false;  // unsafe -- no need to check
+  }  // else, we can try reading this file
+  int contentSize;
+  char *fileContents = ReadFileToString(fullfile.c_str(), &contentSize);
+  if (fileContents == NULL) {  // read failed
+    return false;
+  }  // read file contents successfully, so return and clean up
+  *str = std::string(fileContents, contentSize);
+  free(fileContents);
   return true;
 }
 
