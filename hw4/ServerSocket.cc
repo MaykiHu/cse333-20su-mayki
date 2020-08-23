@@ -27,6 +27,8 @@ extern "C" {
 
 namespace hw4 {
 
+static const int kBufSize = 1024;
+
 ServerSocket::ServerSocket(uint16_t port) {
   port_ = port;
   listen_sock_fd_ = -1;
@@ -138,10 +140,11 @@ bool ServerSocket::Accept(int *accepted_fd,
     *client_addr = std::string(astring);
     *client_port = ntohs(in6->sin6_port);
   }
-  char hostname[1024];  // get for storing client_dnsname
-  Verify333(getnameinfo(addr, caddr_len, hostname, 1024, nullptr, 0, 0) == 0);
+  char hostname[kBufSize];  // get for storing client_dnsname
+  Verify333(getnameinfo(addr, caddr_len, hostname, kBufSize, nullptr, 0, 0)
+                        == 0);
   *client_dnsname = std::string(hostname);
-  char hname[1024];  // now, we get server info
+  char hname[kBufSize];  // now, we get server info
   hname[0] = '\0';
   if (sock_family_ == AF_INET) {  // server is IPv4
     struct sockaddr_in srvr;
@@ -150,7 +153,7 @@ bool ServerSocket::Accept(int *accepted_fd,
     getsockname(client_fd, (struct sockaddr *) &srvr, &srvrlen);
     inet_ntop(AF_INET, &srvr.sin_addr, addrbuf, INET_ADDRSTRLEN);
     getnameinfo((const struct sockaddr *) &srvr, srvrlen, hname,
-                1024, nullptr, 0, 0);  // get server's dns name
+                kBufSize, nullptr, 0, 0);  // get server's dns name
     *server_addr = std::string(addrbuf);
   } else {  // server is using IPv6
     struct sockaddr_in6 srvr;
@@ -159,7 +162,7 @@ bool ServerSocket::Accept(int *accepted_fd,
     getsockname(client_fd, (struct sockaddr *) &srvr, &srvrlen);
     inet_ntop(AF_INET6, &srvr.sin6_addr, addrbuf, INET6_ADDRSTRLEN);
     getnameinfo((const struct sockaddr *) &srvr, srvrlen, hname,
-                1024, nullptr, 0, 0);
+                kBufSize, nullptr, 0, 0);
     *server_addr = std::string(addrbuf);
   }
   *server_dnsname = std::string(hname);  // save server dns name

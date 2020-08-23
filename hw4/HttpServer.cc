@@ -56,6 +56,14 @@ static const char *kThreegleStr =
   "<input type=\"submit\" value=\"Search\" />\n"
   "</form>\n"
   "</center><p>\n";
+static const char *kSearchStr =
+  "<div style=\"height:20px;\"></div>\n"
+  "<center>\n"
+  "<form action=\"/query\" method=\"get\">\n"
+  "<input type=\"text\" size=30 name=\"terms\" />\n"
+  "<input type=\"submit\" value=\"Search\" />\n"
+  "</form>\n"
+  "</center><p>\n";
 
 // static
 const int HttpServer::kNumThreads = 100;
@@ -135,7 +143,20 @@ static void HttpServer_ThrFn(ThreadPool::Task *t) {
   // STEP 1:
   bool done = false;
   while (!done) {
-    done = true;  // you may want to change this value
+    HttpConnection connection(hst->client_fd);
+    HttpRequest req;
+    if (!connection.GetNextRequest(&req)) {  // if failed to read next req
+      close(hst->client_fd);  // close connection
+      done = true;
+    } else {  // we got the request, so process and write it
+      HttpResponse resp = ProcessRequest(req, hst->basedir, hst->indices);
+      // If writing response fails or client sends that connection close
+      if (!connection.WriteResponse(resp) ||
+          req.GetHeaderValue("connection").compare("close") == 0) {
+        close(hst->client_fd);
+        done = true;
+      }
+    }
   }
 }
 
@@ -176,7 +197,40 @@ static HttpResponse ProcessFileRequest(const string &uri,
   string fname = "";
 
   // STEP 2:
-
+  // Using URLParser class to find filename (fname)
+  URLParser parser;
+  parser.Parse(uri);
+  fname = parser.path();
+  // Using FileReaeder to read file to memory
+  FileReader reader(basedir, fname);
+  string fileContent;
+  if (reader.ReadFile(&fileContent)) {  // if can read file contents
+    ret.AppendToBody(fileContent);  // Copy file content to ret.body
+    // Set the response content-type headers as appropriate
+    size_t suffixPos = fname.rfind(".");  // find last dot, where suffix begins
+    string suffix = fname.substr(suffixPos);
+    if (suffix.compare(".html") == 0 || suffix.compare(".htm") == 0) {
+      ret.set_content_type("text/html");
+    } else if (suffix.compare(".jpeg") == 0 || suffix.compare(".jpg") == 0) {
+      ret.set_content_type("image/jpeg");
+    } else if (suffix.compare(".png") == 0) {
+      ret.set_content_type("image/jpeg");
+    } else if (suffix.compare(".js") == 0) {
+      ret.set_content_type("text/javascript");
+    } else if (suffix.compare(".xml") == 0) {
+      ret.set_content_type("application/xml");
+    } else if (suffix.compare(".css") == 0) {
+      ret.set_content_type("text/css");
+    } else if (suffix.compare(".txt") == 0) {
+      ret.set_content_type("text");
+    } else if (suffix.compare(".gif") == 0) {
+      ret.set_content_type("image/gif");
+    }
+    // Set response code, protocol, and message
+    ret.set_response_code(200);
+    ret.set_protocol("HTTP/1.1");
+    ret.set_message("OK");
+  }  // else, error opening/finding file -- could not read
 
   // If you couldn't find the file, return an HTTP 404 error.
   ret.set_protocol("HTTP/1.1");
@@ -215,7 +269,36 @@ static HttpResponse ProcessQueryRequest(const string &uri,
   //    in our solution_binaries/http333d.
 
   // STEP 3:
-
+  // Present the 333gle logo
+  ret.AppendToBody(kThreegleStr);
+  // Present the search box/button
+  ret.AppendToBody(kSearchStr);
+  // Extract thee search terms by parsing uri
+  URLParser parser;
+  parser.Parse(uri);
+  string query = parser.args().at("terms");  // query text at name="terms"
+  boost::to_lower(query);  // convert search teerms to lower casee
+  // If user typed into search query before, display search results
+  if (query.size() != 0) {  // query has terms
+    vector<string> queryWords;
+    boost::split(queryWords, query, boost::is_any_of(" "),
+                 boost::token_compress_on);  // split query to its words
+    // Find search results on the query words to display
+    hw3::QueryProcessor processor(*indices);
+    vector<hw3::QueryProcessor::QueryResult> results = 
+                                            processor.ProcessQuery(queryWords);
+    if (results.size() == 0) {  // no search results found, display nothing
+      ret.AppendToBody("<p><br>\n");
+      ret.AppendToBody("No results found for <b>");
+      ret.AppendToBody(query);
+      ret.AppendToBody("</b>\n");
+      ret.AppendToBody("<p>\n");
+      ret.AppendToBody("\n");
+    } else {  // display results that were found
+      // resume here in the future..
+      // :( if this exists, this means i wasn't able to get back in time
+    }
+  }
   return ret;
 }
 

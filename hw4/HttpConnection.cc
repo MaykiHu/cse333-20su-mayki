@@ -28,6 +28,7 @@ namespace hw4 {
 
 static const char *kHeaderEnd = "\r\n\r\n";
 static const int kHeaderEndLen = 4;
+static const int kBufSize = 1024;
 
 bool HttpConnection::GetNextRequest(HttpRequest *request) {
   // Use "WrappedRead" to read data into the buffer_
@@ -47,11 +48,11 @@ bool HttpConnection::GetNextRequest(HttpRequest *request) {
   // STEP 1:
   size_t found = buffer_.find(kHeaderEnd);  // check if header exists
   if (found == string::npos) {  // no header end was found, we need to read
-    unsigned char buf[1024];
+    unsigned char buf[kBufSize];
     int bytesRead = -1;
     // Keep reading data until connection drops or header end found
     while (bytesRead != 0 && found == string::npos) {
-      bytesRead = WrappedRead(fd_, buf, 1024);
+      bytesRead = WrappedRead(fd_, buf, kBufSize);
       if (bytesRead == -1) {  // fatal error occured
         return false;
       } else if (bytesRead == 0) {  // connection dropped / EOF
