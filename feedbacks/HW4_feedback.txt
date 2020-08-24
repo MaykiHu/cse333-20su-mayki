@@ -1,0 +1,32 @@
+HW4 Feedback
+
+
+Test Suite: 250/250
+
+
+Valgrind: 5/5
+
+
+Modularity: 5/5
+
+
+Robustness and error checking: 5/10
+(-3) FileReader.cc copies code from ReadFileToString in HW2 instead of calling it. Also, has resource leaks on failure.
+(-1) HttpServer_ThrFn closes the socket before HttpConnection is destructed. Since HttpConnection destructor closes the socket, this results in closing the socket twice.
+(-1) Does not sanitize HTML (i.e. XSS security vulnerability). Should EscapeHtml the users's query in ProcessQueryRequest.
+
+Comments, Blending with starter code and other style issues:  4/5
+(-1) Some cpplint warnings that should have been fixed.
+
+
+Server Test:  0/10
+(-1) Creates new connection for every request. Define connection outside the while loop in HttpServer::ThrFn.
+(-3) Static pages are unreachable.
+(-4) 333gle does not show any results
+(-2) Encounters Segmentation fault (or other fatal error) when running
+
+
+Short Answer:  5/5
+
+
+Extra Credit: 0/5
